@@ -66,6 +66,7 @@ const taskid_updatemenu		= 31337
 new t_id,ct_id			// id игроков 1х1
 new Float:bet_time			// время ставки
 new bet_menu
+new max_players			// храним количество игроков
 
 new players_data[MAX_PLAYERS + 1][players_data_struct]
 
@@ -120,6 +121,7 @@ public plugin_init()
 	
 	register_dictionary("sf_bets.txt")
 	register_dictionary("common.txt")
+	max_players = get_maxplayers()
 }
 
 public plugin_cfg()
@@ -184,10 +186,7 @@ public EventHook_NewRound()
 {
 	if(t_id || ct_id)
 	{
-		new players[MAX_PLAYERS],pnum
-		get_players(players,pnum,"ch")
-		
-		for(new i ; i < pnum ; i++)
+		for(new i; i < max_players ; i++)
 		{
 			arrayset(players_data[players[i]],0,players_data_struct)
 		}
