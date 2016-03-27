@@ -1,5 +1,5 @@
 /*
-*	SF Bets				     v. 0.1
+*	SF Bets				     v. 0.1.1
 *	by serfreeman1337	http://gf.hldm.org/
 */
 
@@ -8,7 +8,7 @@
 #include <hamsandwich>
 
 #define PLUGIN "SF Bets"
-#define VERSION "0.1"
+#define VERSION "0.1.1"
 #define AUTHOR "serfreeman1337"
 
 //#define AES	// расскоментируйте для возможности ставить опыт AES (http://1337.uz/advanced-experience-system/)
@@ -708,7 +708,7 @@ public Bet_MenuCallback(id, menu, r_item)
 			menu_item_setname(menu,r_item,fmt)
 			
 			#if defined AES
-			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP])
+			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP] && !players_data[id][BET_BONUS])
 				return ITEM_DISABLED
 			#else
 			if(!players_data[id][BET_MONEY])
@@ -775,7 +775,7 @@ public Bet_MenuCallback(id, menu, r_item)
 			menu_item_setname(menu,r_item,fmt)
 			
 			#if defined AES
-			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP])
+			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP] && !players_data[id][BET_BONUS])
 				return ITEM_DISABLED
 			#else
 			if(!players_data[id][BET_MONEY])
