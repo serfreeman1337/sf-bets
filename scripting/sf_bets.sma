@@ -1,6 +1,6 @@
 /*
-*	SF Bets				     v. 0.1.1
-*	by serfreeman1337	http://gf.hldm.org/
+*	SF Bets				     v. 0.1.3
+*	by serfreeman1337	      http://1337.uz/
 */
 
 #include <amxmodx>
@@ -8,7 +8,7 @@
 #include <hamsandwich>
 
 #define PLUGIN "SF Bets"
-#define VERSION "0.1.1"
+#define VERSION "0.1.3"
 #define AUTHOR "serfreeman1337"
 
 //#define AES	// расскоментируйте для возможности ставить опыт AES (http://1337.uz/advanced-experience-system/)
@@ -92,7 +92,7 @@ public plugin_init()
 	//
 	// Время, в течении которого можно сделать ставку
 	//
-	cvar[CVAR_BET_TIME] = register_cvar("sf_bet_time","8")
+	cvar[CVAR_BET_TIME] = register_cvar("sf_bet_time","15")
 	
 	//
 	// Ставка денег
@@ -307,11 +307,11 @@ public Bet_End1x1(win_practicant)
 					player,"SF_BET14",
 					prize
 				)
-				
-				cs_set_user_money(player,
-					cs_get_user_money(player) + prize
-				)
 			}
+			
+			cs_set_user_money(player,
+				cs_get_user_money(player) + prize + players_data[player][BET_MONEY]
+			)
 			
 			#if defined AES
 			// выдаем опыт
@@ -324,9 +324,16 @@ public Bet_End1x1(win_practicant)
 					player,"SF_BET15",
 					prize
 				)
-				
-				aes_add_player_exp(player,prize)
 			}
+			
+			new rt[AES_ST_END],rt_s[3]
+			aes_get_player_stats(player,rt)
+				
+			rt_s[AES_ST_EXP] = rt[AES_ST_EXP] + prize + players_data[player][BET_EXP]
+			rt_s[AES_ST_LEVEL] = -1
+			rt_s[AES_ST_BONUSES] = -1
+				
+			aes_set_player_stats(player,rt_s)
 			
 			// выдаем бонусы
 			prize = Bet_GetWinPool(player,BET_BONUS,win_practicant)
@@ -339,9 +346,20 @@ public Bet_End1x1(win_practicant)
 					prize
 				)
 				
-				aes_add_player_bonus(player,prize)
+				
 			}
+			
+			rt_s[AES_ST_EXP] = -1
+			rt_s[AES_ST_LEVEL] = -1
+			rt_s[AES_ST_BONUSES] = rt[AES_ST_BONUSES] + prize + players_data[player][BET_BONUS]
+			
+			aes_set_player_stats(player,rt_s)
 			#endif
+			
+			if(!prize_len)
+			{
+				formatex(prize_str,charsmax(prize_str),"%L",player,"SF_BET22")
+			}
 			
 			client_print_color(player,print_team_blue,"%L %L",
 				player,"SF_BET9",
@@ -388,6 +406,7 @@ public Bet_UpdateMenu()
 			// обновляем меню
 			if(floatround(bet_left) > 0)
 			{
+				Bet_MenuFormat(player)
 				menu_display(player,bet_menu)
 			}
 			// закрываем меню по истечению времени
@@ -496,6 +515,7 @@ public Bet_MenuHandler(id,menu,r_item)
 				// игроку не хватает денег
 				if(user_money < players_data[id][BET_MONEY])
 				{
+					Bet_MenuFormat(id)
 					menu_display(id,menu)
 					
 					return PLUGIN_HANDLED
@@ -516,6 +536,7 @@ public Bet_MenuHandler(id,menu,r_item)
 			{
 				if(rt[AES_ST_EXP] < players_data[id][BET_EXP])
 				{
+					Bet_MenuFormat(id)
 					menu_display(id,menu)
 					
 					return PLUGIN_HANDLED
@@ -528,6 +549,7 @@ public Bet_MenuHandler(id,menu,r_item)
 			{
 				if(rt[AES_ST_BONUSES] < players_data[id][BET_BONUS])
 				{
+					Bet_MenuFormat(id)
 					menu_display(id,menu)
 					
 					return PLUGIN_HANDLED
@@ -603,6 +625,7 @@ public Bet_MenuHandler(id,menu,r_item)
 				#endif
 			}
 			
+			Bet_MenuFormat(id)
 			menu_display(id,menu)
 		}
 	}
@@ -881,17 +904,21 @@ Bet_GetWinPool(id,pool,practicant)
 	get_players(players,pnum,"ch")
 	
 	new bet_pool
+	new win_pool
 	
 	for(new i,player ; i <pnum ; i++)
 	{
 		player = players[i]
 		
-		if(players_data[player][BET_FOR] != 0 && players_data[player][BET_FOR] != practicant)
+		if(players_data[player][BET_FOR] == 0 && player != id)
 		{
 			continue
 		}
 		
-		bet_pool += players_data[player][pool]
+		if(players_data[player][BET_FOR] == practicant || !players_data[player][BET_FOR])
+			bet_pool += players_data[player][pool]
+		else
+			win_pool += players_data[player][pool]
 	}
 	
 	if(!bet_pool)
@@ -900,7 +927,7 @@ Bet_GetWinPool(id,pool,practicant)
 	// процент ставки игрока от общей суммы
 	new Float:bet_perc = float(players_data[id][pool]) * 100.0 / float(bet_pool)
 	
-	return bet_pool * floatround(bet_perc) / 100
+	return win_pool * floatround(bet_perc) / 100
 }
 
 //
