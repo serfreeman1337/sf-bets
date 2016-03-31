@@ -1,5 +1,5 @@
 /*
-*	SF Bets				     v. 0.1.3
+*	SF Bets				     v. 0.1.4
 *	by serfreeman1337	      http://1337.uz/
 */
 
@@ -8,13 +8,44 @@
 #include <hamsandwich>
 
 #define PLUGIN "SF Bets"
-#define VERSION "0.1.3"
+#define VERSION "0.1.4"
 #define AUTHOR "serfreeman1337"
 
-//#define AES	// расскоментируйте для возможности ставить опыт AES (http://1337.uz/advanced-experience-system/)
+//#define AES	// раскомментируйте для возможности ставить опыт AES (http://1337.uz/advanced-experience-system/)
+//#define ACP	// раскомментируйте для возможности ставить очки ACP (http://www.a114games.com/community/threads/igrovye-akkaunty-ili-sistema-registracii-nikov.1658/)
 
 #if defined AES
 	#include <aes_main>
+#endif
+
+#if defined ACP
+	#include <acp>
+	
+	/*acp_get_player_auth(id)
+		return 1
+	
+	acp_get_player_points(id)
+		return 1337*/
+		
+	acp_take_player_points(id,points)
+	{
+		if(callfunc_begin("TakePoints","acp_general.amxx"))
+		{
+			callfunc_push_int(id)
+			callfunc_push_int(points)
+			callfunc_end()
+		}
+	}
+	
+	acp_give_player_points(id,points)
+	{
+		if(callfunc_begin("GivePoints","acp_general.amxx"))
+		{
+			callfunc_push_int(id)
+			callfunc_push_int(points)
+			callfunc_end()
+		}
+	}
 #endif
 
 #if AMXX_VERSION_NUM < 183
@@ -44,6 +75,10 @@ enum _:players_data_struct
 	,BET_EXP,
 	BET_BONUS
 	#endif
+	
+	#if defined ACP
+	,BET_POINTS
+	#endif
 }
 
 enum _:cvars
@@ -51,15 +86,37 @@ enum _:cvars
 	CVAR_MIN_PLAYERS,
 	CVAR_BET_TIME,
 	CVAR_BET_AUTOOPEN,
-	CVAR_BET_MONEY
+	CVAR_BET_MONEY,
+	CVAR_BET_MODE,
+	CVAR_BET_MULTIPLER
 	
 	#if defined AES
 	,CVAR_BET_EXP,
 	CVAR_BET_BONUS
 	#endif
+	
+	#if defined ACP
+	,CVAR_BET_POINTS
+	#endif
 }
 
 const taskid_updatemenu		= 31337
+
+new const lyl_array[][] = {
+	{CVAR_BET_MONEY,BET_MONEY}
+	#if defined AES
+	,{CVAR_BET_EXP,BET_EXP}
+	,{CVAR_BET_BONUS,BET_BONUS}
+	#else
+	,{-1,-1}
+	,{-1,-1}
+	#endif
+	#if defined ACP
+	,{CVAR_BET_POINTS,BET_POINTS}
+	#else
+	,{-1,-1}
+	#endif
+}
 
 // -- ПЕРЕМЕННЫЕ -- //
 
@@ -77,6 +134,9 @@ new menuCB_bet
 public plugin_init()
 {
 	register_plugin(PLUGIN,VERSION,AUTHOR)
+	
+	// sf plugin tracker
+	register_cvar("sf_bets", VERSION, FCVAR_SERVER | FCVAR_SPONLY | FCVAR_UNLOGGED)
 	
 	hook_playerKilled = RegisterHam(Ham_Killed,"player","HamHook_PlayerKilled",true)
 	register_logevent("Bet_CheckMinPlayers",3,"1=joined team")
@@ -99,6 +159,18 @@ public plugin_init()
 	//
 	cvar[CVAR_BET_MONEY] = register_cvar("sf_bet_money","100 1000 3000")
 	
+	//
+	// Как расчитывается выигрыш
+	//	0 - выигрышем является сумма поставленная на проигравшего, делится в процентом соотношении ставки победителей
+	//	1 - выигрышем является ваша ставка
+	//
+	cvar[CVAR_BET_MODE] = register_cvar("sf_bet_mode","0")
+	
+	//
+	// Множитель выигрыша
+	//
+	cvar[CVAR_BET_MULTIPLER] = register_cvar("sf_bet_multipler","1.0")
+	
 	#if defined AES
 	//
 	// Ставка опыта
@@ -109,6 +181,13 @@ public plugin_init()
 	// Ставка бонусов
 	//
 	cvar[CVAR_BET_BONUS] = register_cvar("sf_bet_bonus","")
+	#endif
+	
+	#if defined ACP
+	//
+	// Ставка очков ACP
+	//
+	cvar[CVAR_BET_POINTS] = register_cvar("sf_bet_points","")
 	#endif
 	
 	//
@@ -151,6 +230,13 @@ public plugin_cfg()
 	if(v_cvar[0])
 		menu_additem(bet_menu,"Bonus","4",.callback = menuCB_bet)
 	#endif
+	
+	#if defined ACP
+	get_pcvar_string(cvar[CVAR_BET_POINTS],v_cvar,charsmax(v_cvar))
+	
+	if(v_cvar[0])
+		menu_additem(bet_menu,"Points","5",.callback = menuCB_bet)
+	#endif
 }
 
 
@@ -158,6 +244,28 @@ public client_disconnect(id)
 {
 	// TODO: придумать что-то
 	set_task(0.1,"Bet_CheckMinPlayers")
+	
+	if(players_data[id][BET_FOR])
+	{
+		#if defined AES
+		if(players_data[id][BET_EXP])
+		{
+			aes_add_player_exp(id,-players_data[id][BET_EXP],true)
+		}
+		
+		if(players_data[id][BET_BONUS])
+		{
+			aes_add_player_bonus(id,-players_data[id][BET_BONUS])
+		}
+		#endif
+		
+		#if defined ACP
+		if(players_data[id][BET_POINTS])
+		{
+			acp_take_player_points(id,players_data[id][BET_POINTS])
+		}
+		#endif
+	}
 	
 	arrayset(players_data[id],0,players_data_struct)
 }
@@ -307,11 +415,11 @@ public Bet_End1x1(win_practicant)
 					player,"SF_BET14",
 					prize
 				)
+				
+				cs_set_user_money(player,
+					cs_get_user_money(player) + prize
+				)
 			}
-			
-			cs_set_user_money(player,
-				cs_get_user_money(player) + prize + players_data[player][BET_MONEY]
-			)
 			
 			#if defined AES
 			// выдаем опыт
@@ -324,16 +432,9 @@ public Bet_End1x1(win_practicant)
 					player,"SF_BET15",
 					prize
 				)
+				
+				aes_add_player_exp(player,prize)
 			}
-			
-			new rt[AES_ST_END],rt_s[3]
-			aes_get_player_stats(player,rt)
-				
-			rt_s[AES_ST_EXP] = rt[AES_ST_EXP] + prize + players_data[player][BET_EXP]
-			rt_s[AES_ST_LEVEL] = -1
-			rt_s[AES_ST_BONUSES] = -1
-				
-			aes_set_player_stats(player,rt_s)
 			
 			// выдаем бонусы
 			prize = Bet_GetWinPool(player,BET_BONUS,win_practicant)
@@ -346,14 +447,23 @@ public Bet_End1x1(win_practicant)
 					prize
 				)
 				
-				
+				aes_add_player_bonus(player,prize)
 			}
+			#endif
 			
-			rt_s[AES_ST_EXP] = -1
-			rt_s[AES_ST_LEVEL] = -1
-			rt_s[AES_ST_BONUSES] = rt[AES_ST_BONUSES] + prize + players_data[player][BET_BONUS]
+			#if defined ACP
+			prize = Bet_GetWinPool(player,BET_POINTS,win_practicant)
 			
-			aes_set_player_stats(player,rt_s)
+			if(prize)
+			{
+				prize_len += formatex(prize_str[prize_len],charsmax(prize_str) - prize_len,"%s%L",
+					prize_len ? ", " : "",
+					player,"SF_BET25",
+					prize
+				)
+				
+				acp_give_player_points(id,prize)
+			}
 			#endif
 			
 			if(!prize_len)
@@ -378,6 +488,32 @@ public Bet_End1x1(win_practicant)
 				player,"SF_BET12",
 				lose_name
 			)
+			
+			if(players_data[player][BET_MONEY])
+			{
+				cs_set_user_money(player,
+					cs_get_user_money(player) - players_data[player][BET_MONEY]
+				)
+			}
+			
+			#if defined AES
+			if(players_data[player][BET_EXP])
+			{
+				aes_add_player_exp(player,-players_data[player][BET_EXP],true)
+			}
+			
+			if(players_data[player][BET_BONUS])
+			{
+				aes_add_player_bonus(player,-players_data[player][BET_BONUS])
+			}
+			#endif
+			
+			#if defined ACP
+			if(players_data[player][BET_POINTS])
+			{
+				acp_take_player_points(id,players_data[player][BET_POINTS])
+			}
+			#endif
 		}
 		
 		arrayset(players_data[player],0,players_data_struct)
@@ -520,11 +656,6 @@ public Bet_MenuHandler(id,menu,r_item)
 					
 					return PLUGIN_HANDLED
 				}
-				
-				// списываем деньги
-				cs_set_user_money(id,
-					cs_get_user_money(id) - players_data[id][BET_MONEY]
-				)
 			}
 			
 			#if defined AES
@@ -532,6 +663,7 @@ public Bet_MenuHandler(id,menu,r_item)
 			aes_get_player_stats(id,rt)
 			
 			// ставим опыт
+			
 			if(players_data[id][BET_EXP])
 			{
 				if(rt[AES_ST_EXP] < players_data[id][BET_EXP])
@@ -541,8 +673,6 @@ public Bet_MenuHandler(id,menu,r_item)
 					
 					return PLUGIN_HANDLED
 				}
-				
-				aes_add_player_exp(id,-players_data[id][BET_EXP])
 			}
 			
 			if(players_data[id][BET_BONUS])
@@ -554,21 +684,30 @@ public Bet_MenuHandler(id,menu,r_item)
 					
 					return PLUGIN_HANDLED
 				}
-				
-				aes_add_player_bonus(id,-players_data[id][BET_BONUS])
 			}
+			#endif
 			
-			// ставим бонусы
+			#if defined ACP
+			if(players_data[id][BET_POINTS])
+			{
+				if(acp_get_player_points(id) < players_data[id][BET_POINTS])
+				{
+					Bet_MenuFormat(id)
+					menu_display(id,menu)
+					
+					return PLUGIN_HANDLED
+				}
+			}
 			#endif
 			
 			// запоминаем на кого поставили
 			players_data[id][BET_FOR] = item == 0 ? t_id : ct_id
 		}
 		// переключатели стаовк
-		case 2,3,4:
+		case 2,3,4,5:
 		{
-			new cp = CVAR_BET_MONEY + (item - 2)
-			new sp = BET_MONEY + (item - 2)
+			new cp = lyl_array[item - 2][0]
+			new sp = lyl_array[item - 2][1]
 			
 			new bet_str[128],bet_val[10],bool:set
 			get_pcvar_string(cvar[cp],bet_str,charsmax(bet_str))
@@ -618,6 +757,15 @@ public Bet_MenuHandler(id,menu,r_item)
 						||
 						(item == 4 && rt[AES_ST_BONUSES] < players_data[id][sp])
 					)
+					{
+						players_data[id][sp] = 0
+					}
+				}
+				#endif
+				#if defined ACP
+				case 5:
+				{
+					if(acp_get_player_points(id) < players_data[id][sp])
 					{
 						players_data[id][sp] = 0
 					}
@@ -673,84 +821,26 @@ public Bet_MenuCallback(id, menu, r_item)
 	
 	switch(item)
 	{
-		// ставка на T
-		case 0:
+		// ставки на T или CT
+		case 0,1:
 		{
-			new t_name[MAX_NAME_LENGTH]
-			get_user_name(t_id,t_name,charsmax(t_name))
+			new ct_name[MAX_NAME_LENGTH],bet_id = (item == 0 ? t_id : ct_id)
+			new rt = ITEM_DISABLED
 			
-			len = formatex(fmt[len],charsmax(fmt) - len,"%L",
-				id,"SF_BET6",
-				t_name,
-				"T"
-			)
-			
-			new prize = Bet_GetWinPool(id,BET_MONEY,t_id)
-			new prize_str[128],prize_len
-			
-			if(prize)
-			{
-				prize_len += formatex(prize_str[prize_len],charsmax(prize_str) - prize_len,"%L",
-					id,"SF_BET5",
-					prize
-				)	
-			}
-			
-			#if defined AES
-			prize = Bet_GetWinPool(id,BET_EXP,t_id)
-			
-			if(prize)
-			{
-				prize_len += formatex(prize_str[prize_len],charsmax(prize_str) - prize_len,"%s%L",
-					prize_len ? ", " : "",
-					id,"SF_BET4",
-					prize
-				)
-			}
-			
-			prize = Bet_GetWinPool(id,BET_BONUS,t_id)
-			
-			if(prize)
-			{
-				prize_len += formatex(prize_str[prize_len],charsmax(prize_str) - prize_len,"%s%L",
-					prize_len ? ", " : "",
-					id,"SF_BET20",
-					prize
-				)
-			}
-			#endif
-			
-			if(prize_str[0])
-			{
-				len += formatex(fmt[len],charsmax(fmt) - len," %L",
-					id,"SF_BET16",
-					prize_str
-				)
-			}
-			
-			menu_item_setname(menu,r_item,fmt)
-			
-			#if defined AES
-			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP] && !players_data[id][BET_BONUS])
-				return ITEM_DISABLED
-			#else
-			if(!players_data[id][BET_MONEY])
-				return ITEM_DISABLED
-			#endif
-		}
-		// ставка на CT
-		case 1:
-		{
-			new ct_name[MAX_NAME_LENGTH]
-			get_user_name(ct_id,ct_name,charsmax(ct_name))
+			get_user_name(bet_id,ct_name,charsmax(ct_name))
 	
 			len = formatex(fmt[len],charsmax(fmt) - len,"%L",
 				id,"SF_BET6",
 				ct_name,
-				"CT"
+				item == 0 ? "T" : "CT"
 			)
 			
-			new prize = Bet_GetWinPool(id,BET_MONEY,ct_id)
+			if(players_data[id][BET_MONEY])
+			{
+				rt = ITEM_ENABLED
+			}
+			
+			new prize = Bet_GetWinPool(id,BET_MONEY,bet_id)
 			new prize_str[128],prize_len
 			
 			if(prize)
@@ -762,7 +852,7 @@ public Bet_MenuCallback(id, menu, r_item)
 			}
 			
 			#if defined AES
-			prize = Bet_GetWinPool(id,BET_EXP,t_id)
+			prize = Bet_GetWinPool(id,BET_EXP,bet_id)
 			
 			if(prize)
 			{
@@ -773,7 +863,7 @@ public Bet_MenuCallback(id, menu, r_item)
 				)
 			}
 			
-			prize = Bet_GetWinPool(id,BET_BONUS,t_id)
+			prize = Bet_GetWinPool(id,BET_BONUS,bet_id)
 			
 			if(prize)
 			{
@@ -782,6 +872,30 @@ public Bet_MenuCallback(id, menu, r_item)
 					id,"SF_BET20",
 					prize
 				)
+			}
+			
+			if(players_data[id][BET_EXP] || players_data[id][BET_EXP])
+			{
+				rt = ITEM_ENABLED
+			}
+			
+			#endif
+			
+			#if defined ACP
+			prize = Bet_GetWinPool(id,BET_POINTS,bet_id)
+			
+			if(prize)
+			{
+				prize_len += formatex(prize_str[prize_len],charsmax(prize_str) - prize_len,"%s%L",
+					prize_len ? ", " : "",
+					id,"SF_BET24",
+					prize
+				)
+			}
+			
+			if(players_data[id][BET_POINTS])
+			{
+				rt = ITEM_ENABLED
 			}
 			#endif
 			
@@ -793,23 +907,19 @@ public Bet_MenuCallback(id, menu, r_item)
 				)
 			}
 			
-			len += formatex(fmt[len],charsmax(fmt) - len,"^n")
+			if(item == 1)
+			{
+				len += formatex(fmt[len],charsmax(fmt) - len,"^n")
+			}
 			
 			menu_item_setname(menu,r_item,fmt)
-			
-			#if defined AES
-			if(!players_data[id][BET_MONEY] && !players_data[id][BET_EXP] && !players_data[id][BET_BONUS])
-				return ITEM_DISABLED
-			#else
-			if(!players_data[id][BET_MONEY])
-				return ITEM_DISABLED
-			#endif
+			return rt
 		}
 		// переключатели
-		case 2,3,4:
+		case 2,3,4,5:
 		{
-			new cp = CVAR_BET_MONEY + (item - 2)
-			new sp = BET_MONEY + (item - 2)
+			new cp = lyl_array[item - 2][0]
+			new sp = lyl_array[item - 2][1]
 			
 			switch(item)
 			{
@@ -818,6 +928,19 @@ public Bet_MenuCallback(id, menu, r_item)
 				#if defined AES
 				case 3: len = formatex(fmt[len],charsmax(fmt) - len,"%L",id,"SF_BET8")
 				case 4: len = formatex(fmt[len],charsmax(fmt) - len,"%L",id,"SF_BET19")
+				#endif
+				#if defined ACP
+				case 5: 
+				{
+					len = formatex(fmt[len],charsmax(fmt) - len,"%L %L",id,"SF_BET23",id,"SF_BET26",acp_get_player_points(id))
+					
+					// игрок не зарегистрирован, выкл. этот пункт
+					if(acp_get_player_auth(id) == 0)
+					{
+						menu_item_setname(bet_menu,r_item,fmt)
+						return ITEM_DISABLED
+					}
+				}
 				#endif
 			}
 			
@@ -887,6 +1010,15 @@ Bet_Menu_GetBetString(id)
 	}
 	#endif
 	
+	#if defined ACP
+	if(players_data[id][BET_POINTS])
+	{
+		len += formatex(fmt[len],charsmax(fmt) - len,"%s%L",fmt[0] ? ", " : "",id,"SF_BET24",
+			players_data[id][BET_POINTS]
+		)
+	}
+	#endif
+	
 	if(!fmt[0])
 	{
 		copy(fmt,charsmax(fmt),"\d-\w")
@@ -900,34 +1032,49 @@ Bet_Menu_GetBetString(id)
 //
 Bet_GetWinPool(id,pool,practicant)
 {
-	new players[MAX_PLAYERS],pnum
-	get_players(players,pnum,"ch")
+	new win_bet
 	
-	new bet_pool
-	new win_pool
-	
-	for(new i,player ; i <pnum ; i++)
+	switch(get_pcvar_num(cvar[CVAR_BET_MODE]))
 	{
-		player = players[i]
-		
-		if(players_data[player][BET_FOR] == 0 && player != id)
+		case 0:
 		{
-			continue
+			new players[MAX_PLAYERS],pnum
+			get_players(players,pnum,"ch")
+			
+			new bet_pool
+			new win_pool
+			
+			for(new i,player ; i <pnum ; i++)
+			{
+				player = players[i]
+				
+				if(players_data[player][BET_FOR] == 0 && player != id)
+				{
+					continue
+				}
+				
+				if(players_data[player][BET_FOR] == practicant || !players_data[player][BET_FOR])
+					bet_pool += players_data[player][pool]
+				else
+					win_pool += players_data[player][pool]
+			}
+			
+			if(!bet_pool)
+				return 0
+			
+			// процент ставки игрока от общей суммы
+			new Float:bet_perc = float(players_data[id][pool]) * 100.0 / float(bet_pool)
+			win_bet = (win_pool * floatround(bet_perc) / 100)
 		}
-		
-		if(players_data[player][BET_FOR] == practicant || !players_data[player][BET_FOR])
-			bet_pool += players_data[player][pool]
-		else
-			win_pool += players_data[player][pool]
+		case 1:
+		{
+			win_bet = (players_data[id][pool])
+		}
 	}
 	
-	if(!bet_pool)
-		return 0
+	win_bet = floatround(win_bet * get_pcvar_float(cvar[CVAR_BET_MULTIPLER]))
 	
-	// процент ставки игрока от общей суммы
-	new Float:bet_perc = float(players_data[id][pool]) * 100.0 / float(bet_pool)
-	
-	return win_pool * floatround(bet_perc) / 100
+	return win_bet
 }
 
 //
