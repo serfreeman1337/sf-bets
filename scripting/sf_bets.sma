@@ -462,7 +462,7 @@ public Bet_End1x1(win_practicant)
 					prize
 				)
 				
-				acp_give_player_points(id,prize)
+				acp_give_player_points(player,prize)
 			}
 			#endif
 			
@@ -511,7 +511,7 @@ public Bet_End1x1(win_practicant)
 			#if defined ACP
 			if(players_data[player][BET_POINTS])
 			{
-				acp_take_player_points(id,players_data[player][BET_POINTS])
+				acp_take_player_points(player,players_data[player][BET_POINTS])
 			}
 			#endif
 		}
