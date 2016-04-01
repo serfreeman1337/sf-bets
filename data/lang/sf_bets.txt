@@ -25,6 +25,8 @@ SF_BET23 = Очки
 SF_BET24 = \r%d\w очков
 SF_BET25 = ^3%d^1 очков
 SF_BET26 = \d[\rу вас %d очков\d]
+SF_BET27 = Вы поставили на ^4%s^1
+SF_BET28 = ^3%s^1 поставил на ^4%s^1
 
 [en]
 SF_BET1 = \r[\wBets\r] \w Place a bet?
@@ -36,8 +38,8 @@ SF_BET6 = %s \r[\y%s\r]
 SF_BET7 = Money
 SF_BET8 = Experience
 SF_BET9 = [^4Bets^1]
-SF_BET10 = ^3This command is only available on 1x1!
-SF_BET11 = ^3This command is not available for alive players!
+SF_BET10 = ^3This command is available on 1x1!
+SF_BET11 = ^3This command is not available for alive!
 SF_BET12 = ^4%s^3 Lose...
 SF_BET13 = ^4%s^3 Win! ^4 Your win: %s
 SF_BET14 = ^3%d^1$
@@ -53,3 +55,5 @@ SF_BET23 = Points
 SF_BET24 = \r%d\w pts
 SF_BET25 = ^3%d^1 pts
 SF_BET26 = \d[\ryou have %d pts\d]
+SF_BET27 = Bet placed on ^4%s^1
+SF_BET28 = ^3%s^1 placed bet on ^4%s^1

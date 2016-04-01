@@ -1,14 +1,15 @@
 /*
-*	SF Bets				     v. 0.1.4
+*	SF Bets				     v. 0.1.5
 *	by serfreeman1337	      http://1337.uz/
 */
 
 #include <amxmodx>
 #include <cstrike>
 #include <hamsandwich>
+#include <fakemeta>
 
 #define PLUGIN "SF Bets"
-#define VERSION "0.1.4"
+#define VERSION "0.1.5"
 #define AUTHOR "serfreeman1337"
 
 //#define AES	// раскомментируйте для возможности ставить опыт AES (http://1337.uz/advanced-experience-system/)
@@ -117,6 +118,8 @@ new const lyl_array[][] = {
 	,{-1,-1}
 	#endif
 }
+
+#define m_iJoinedState 			121
 
 // -- ПЕРЕМЕННЫЕ -- //
 
@@ -572,6 +575,12 @@ public Bet_ShowMenu(id)
 		return PLUGIN_HANDLED
 	}
 	
+	// не показываем меню игрокам в спектаторах
+	if(!(CS_TEAM_T <= cs_get_user_team(id) <= CS_TEAM_CT) || get_pdata_int(id,m_iJoinedState))
+	{
+		return PLUGIN_HANDLED
+	}
+	
 	// меню можно вызвать только 1x1
 	if(!t_id || !ct_id)
 	{
@@ -702,6 +711,43 @@ public Bet_MenuHandler(id,menu,r_item)
 			
 			// запоминаем на кого поставили
 			players_data[id][BET_FOR] = item == 0 ? t_id : ct_id
+			
+			// сообщение в чат
+			new plr_name[MAX_NAME_LENGTH],bet_name[MAX_NAME_LENGTH]
+			
+			get_user_name(id,plr_name,charsmax(plr_name))
+			get_user_name(players_data[id][BET_FOR],bet_name,charsmax(bet_name))
+			
+			// сообщение всем мертвым игрокам
+			new players[MAX_PLAYERS],pnum
+			get_players(players,pnum,"bch")
+			
+			for(new i,player ; i < pnum ; i++)
+			{
+				player = players[i]
+				
+				if(player == id)
+				{
+					client_print_color(player,
+						print_team_default,
+						"%L %L",
+						player,"SF_BET9",
+						player,"SF_BET27",
+						bet_name
+					)
+				}
+				else
+				{
+					client_print_color(player,
+						(cs_get_user_team(player) == CS_TEAM_CT ? print_team_blue : print_team_red), // красим ник в цвет команды
+						"%L %L",
+						player,"SF_BET9",
+						player,"SF_BET28",
+						plr_name,bet_name
+					)
+				}
+					
+			}
 		}
 		// переключатели стаовк
 		case 2,3,4,5:
