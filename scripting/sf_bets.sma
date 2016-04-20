@@ -712,6 +712,11 @@ public Bet_MenuHandler(id,menu,r_item)
 			// запоминаем на кого поставили
 			players_data[id][BET_FOR] = item == 0 ? t_id : ct_id
 			
+			if(!players_data[id][BET_FOR])
+			{
+				return PLUGIN_HANDLED
+			}
+			
 			// сообщение в чат
 			new plr_name[MAX_NAME_LENGTH],bet_name[MAX_NAME_LENGTH]
 			
