@@ -925,7 +925,7 @@ public Bet_MenuCallback(id, menu, r_item)
 				)
 			}
 			
-			if(players_data[id][BET_EXP] || players_data[id][BET_EXP])
+			if(players_data[id][BET_EXP] || players_data[id][BET_BONUS])
 			{
 				rt = ITEM_ENABLED
 			}
