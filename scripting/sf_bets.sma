@@ -755,7 +755,7 @@ public Bet_MenuHandler(id,menu,r_item)
 			}
 		}
 		// переключатели стаовк
-		case 2,3,4,5:
+		case 2,3,4:
 		{
 			new cp = lyl_array[item - 2][0]
 			new sp = lyl_array[item - 2][1]
@@ -967,7 +967,7 @@ public Bet_MenuCallback(id, menu, r_item)
 			return rt
 		}
 		// переключатели
-		case 2,3,4,5:
+		case 2,3,4:
 		{
 			new cp = lyl_array[item - 2][0]
 			new sp = lyl_array[item - 2][1]
